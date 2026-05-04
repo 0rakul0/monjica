@@ -1,19 +1,10 @@
-from pathlib import Path
-
 import geopandas as gpd
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dash_table, dcc, html
 
-
-BASE_DIR = Path(__file__).resolve().parent
-DATA_ENTRADA = BASE_DIR / "data" / "entrada" / "hospitais_inventario.csv"
-INVENTARIO_EQUIPAMENTOS = BASE_DIR / "data" / "entrada" / "inventario_equipamentos_municipais_rj_cnes_202603.csv"
-REFERENCIA_LOCAL_HOSPITAIS = BASE_DIR / "data" / "entrada" / "referencia_local_hospitais.csv"
-UNIDADES_SAUDE = BASE_DIR / "data" / "entrada" / "unidades_saude_municipais_rj_cnes_202603.csv"
-REFERENCIA_XLSX = BASE_DIR / "referencias" / "gestão (1)" / "dados" / "brutos" / "endereço_caps.xlsx"
-MUNICIPIOS_SHP = BASE_DIR / "referencias" / "gestão (1)" / "dados" / "territoriais" / "RJ_Municipios_2024.shp"
+from config import *
 
 COLUNAS_BASE = [
     "ID_HOSPITAL",

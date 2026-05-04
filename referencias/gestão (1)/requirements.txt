@@ -1,6 +1,0 @@
-dash
-pandas
-geopandas
-plotly
-shapely
-openpyxl
