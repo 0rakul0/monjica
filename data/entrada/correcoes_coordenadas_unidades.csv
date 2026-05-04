@@ -1,0 +1,4 @@
+CO_CNES,NO_FANTASIA,LAT_CORRIGIDA,LON_CORRIGIDA,FONTE_CORRECAO,OBSERVACAO
+4888766,CASA DA COLUNA SAUDE E BEM ESTAR,-23.0137009,-43.3057166,Nominatim/OpenStreetMap para Avenida Olegario Maciel 101 Barra da Tijuca,"Corrige ponto CNES que caia no mar; resultado por endereco exato."
+2696703,POSTO DE SAUDE DA FAMILIA BOA ESPERANCA,-22.15990865,-42.41000737,DRM RJ/Bom Jardim setor Jardim Boa Esperanca convertido de UTM para WGS84,"Corrige ponto CNES que caia no mar; aproximacao territorial do bairro Jardim Boa Esperanca/BNH."
+3988449,UNIDADE SAUDE DA FAMILIA DR EVARISTO PAULO MINOMO,-22.8711832,-43.7919653,Nominatim/OpenStreetMap para Vila Margarida Itaguai,"Corrige ponto CNES que caia no mar; aproximacao por bairro/logradouro, validar ponto exato localmente."
