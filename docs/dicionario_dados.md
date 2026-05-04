@@ -116,3 +116,14 @@ Campo planejado, ainda nao populado:
 | `TP_GESTAO` | tipo de gestao |
 | `CO_TIPO_ESTABELECIMENTO` | codigo do tipo de estabelecimento |
 | `TO_CHAR(DT_ATUALIZACAO,'DD/MM/YYYY')` | data de atualizacao cadastral |
+
+## `correcoes_coordenadas_unidades.csv`
+
+| Campo | Descricao |
+| --- | --- |
+| `CO_CNES` | CNES da unidade corrigida |
+| `NO_FANTASIA` | nome da unidade |
+| `LAT_CORRIGIDA` | latitude corrigida |
+| `LON_CORRIGIDA` | longitude corrigida |
+| `FONTE_CORRECAO` | fonte ou metodo usado na correcao |
+| `OBSERVACAO` | observacao sobre precisao e necessidade de validacao |

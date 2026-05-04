@@ -50,6 +50,7 @@ Arquivos derivados da extração:
 | `data/entrada/inventario_equipamentos_municipais_rj_cnes_202603.csv` | inventário detalhado de equipamentos por CNES |
 | `data/entrada/referencia_local_hospitais.csv` | dados complementares extraídos da planilha local atualizada |
 | `data/entrada/unidades_saude_municipais_rj_cnes_202603.csv` | UBS, postos de saúde e UPAs/pronto atendimento municipais ativos no RJ |
+| `data/entrada/correcoes_coordenadas_unidades.csv` | correções manuais documentadas de coordenadas inválidas |
 | `docs/contatos_hospitais_municipais_rj.md` | documentação com telefone e e-mail dos hospitais, quando disponíveis no CNES |
 | `docs/contatos_hospitais_municipais_rj.csv` | versão tabular dos contatos para planilha |
 
@@ -184,6 +185,8 @@ Critérios principais:
 - posto de saúde: nome contendo `POSTO DE SAUDE`.
 
 O mapa permite filtrar por tipo e município. Ao clicar em uma unidade, o painel exibe CNES, nome, categoria, município, endereço, telefone e e-mail quando disponíveis.
+
+Correções manuais de coordenadas foram aplicadas para unidades que apareciam no mar, incluindo Casa da Coluna Saúde e Bem Estar, Posto de Saúde da Família Boa Esperança e Unidade Saúde da Família Dr. Evaristo Paulo Minomo. As fontes e observações estão documentadas em `docs/referencias_dados.md`.
 
 ## Referência local atualizada
 

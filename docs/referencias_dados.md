@@ -68,6 +68,7 @@ O criterio foi propositalmente conservador, mas ainda assim deve ser tratado com
 | `data/entrada/referencia_local_hospitais.csv` | 69 | dados complementares da planilha local |
 | `data/entrada/aps_hospitais_cnes.csv` | 3 | rastreamento dos hospitais da aba APS sem CNES original |
 | `data/entrada/unidades_saude_municipais_rj_cnes_202603.csv` | 2.871 | UBS, postos de saude e UPAs/pronto atendimento municipais ativos no RJ |
+| `data/entrada/correcoes_coordenadas_unidades.csv` | 3 | correcoes manuais documentadas de coordenadas que caiam no mar |
 | `docs/contatos_hospitais_municipais_rj.csv` | 108 | contatos extraidos do CNES para uso em planilha |
 | `docs/contatos_hospitais_municipais_rj.md` | 108 | contatos documentados em formato legivel |
 
@@ -111,6 +112,24 @@ A camada territorial de unidades nao hospitalares foi extraida do CNES/DataSUS 2
 | Posto de saude | nome contendo `POSTO DE SAUDE` | 77 |
 
 Essas unidades sao apresentadas na aba `Unidades de saude` do painel e nao entram no calculo de inventario hospitalar, salvo quando houver dados especificos de equipamentos por unidade em etapa posterior.
+
+## Correcoes manuais de coordenadas
+
+Algumas unidades do CNES estavam com coordenadas visivelmente incorretas, posicionando pontos no mar. Para preservar rastreabilidade, as correcoes foram registradas em:
+
+```text
+data/entrada/correcoes_coordenadas_unidades.csv
+```
+
+Essas correcoes sao aplicadas automaticamente pelo script `scripts/importar_unidades_saude_rj.py` quando a base de unidades e regenerada.
+
+| CNES | Unidade | Coordenada corrigida | Fonte/metodo |
+| --- | --- | --- | --- |
+| 4888766 | CASA DA COLUNA SAUDE E BEM ESTAR | -23.0137009, -43.3057166 | Nominatim/OpenStreetMap para Avenida Olegario Maciel, 101, Barra da Tijuca |
+| 2696703 | POSTO DE SAUDE DA FAMILIA BOA ESPERANCA | -22.15990865, -42.41000737 | ponto territorial Jardim Boa Esperanca/BNH, convertido de UTM para WGS84 a partir de material publico do DRM RJ/Bom Jardim |
+| 3988449 | UNIDADE SAUDE DA FAMILIA DR EVARISTO PAULO MINOMO | -22.8711832, -43.7919653 | Nominatim/OpenStreetMap para Vila Margarida, Itaguai; aproximacao por bairro/logradouro |
+
+Observacao: as correcoes de Boa Esperanca e Evaristo devem ser consideradas aproximacoes territoriais ate validacao local do ponto exato da unidade.
 
 ## Regras de inferencia e campos calculados
 
