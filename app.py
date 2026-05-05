@@ -5,6 +5,33 @@ import plotly.graph_objects as go
 from dash import Dash, Input, Output, dash_table, dcc, html
 
 from config import *
+import sqlite3
+
+DB_PATH = "./banco/monjica.db"
+
+
+def carregar_monjica():
+    conn = sqlite3.connect(DB_PATH)
+
+    query = """
+    SELECT
+        e.tipo_equipamento,
+        e.estado_atual,
+        l.municipio AS origem,
+        s.score_reuso,
+        s.score_criticidade,
+        s.score_prioridade,
+        s.recomendacao,
+        s.explicacao_modelo
+    FROM score_decisao s
+    JOIN equipamentos e ON e.id = s.id_equipamento
+    LEFT JOIN localizacao l ON e.id = l.id_equipamento
+    """
+
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
+
 
 COLUNAS_BASE = [
     "ID_HOSPITAL",
@@ -409,6 +436,52 @@ opcoes_tipos_unidades = [{"label": t, "value": t} for t in sorted(unidades_saude
 opcoes_municipios_unidades = [{"label": m, "value": m} for m in sorted(unidades_saude_df["NO_MUNICIPIO"].dropna().unique())]
 
 
+def layout_monjica():
+    return html.Div(
+        [
+            html.H3("🧠 Inteligência MONJICA", style={"marginTop": "0"}),
+
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Label("Recomendação"),
+                            dcc.Dropdown(
+                                id="filtro-recomendacao",
+                                options=[
+                                    {"label": "Redistribuir", "value": "redistribuir"},
+                                    {"label": "Reuso", "value": "reuso"},
+                                    {"label": "Recondicionar", "value": "recondicionar"},
+                                    {"label": "Descarte", "value": "descarte"},
+                                ],
+                                multi=True,
+                                placeholder="Todas"
+                            )
+                        ],
+                        style={"minWidth": "250px"}
+                    )
+                ],
+                style={**PANEL, "display": "flex", "gap": "12px", "marginBottom": "14px"}
+            ),
+
+            html.Div(id="cards-monjica", style=CARD_CONTAINER),
+
+            html.Div(
+                dcc.Graph(id="grafico-prioridade"),
+                style={**PANEL, "marginBottom": "14px"}
+            ),
+
+            html.Div(
+                [
+                    html.H4("Equipamentos priorizados"),
+                    tabela("tabela-monjica", page_size=15)
+                ],
+                style=PANEL
+            ),
+        ]
+    )
+
+
 def layout_visao_geral():
     return html.Div(
         [
@@ -540,6 +613,7 @@ app.layout = html.Div(
         dcc.Tabs(
             value="tab-visao-geral",
             children=[
+                dcc.Tab(label="Inteligência MONJICA", value="tab-monjica", children=[layout_monjica()]),
                 dcc.Tab(label="Visao geral", value="tab-visao-geral", children=[layout_visao_geral()]),
                 dcc.Tab(label="Hospitais", value="tab-hospitais", children=[layout_hospitais()]),
                 dcc.Tab(label="Unidades de saude", value="tab-unidades-saude", children=[layout_unidades_saude()]),
@@ -560,6 +634,78 @@ def aplicar_filtros(df, municipios, esferas, potenciais):
         dff = dff[dff["POTENCIAL_REAPROVEITAMENTO"].isin(potenciais)]
     return dff
 
+
+@app.callback(
+    Output("cards-monjica", "children"),
+    Output("grafico-prioridade", "figure"),
+    Output("tabela-monjica", "columns"),
+    Output("tabela-monjica", "data"),
+    Input("filtro-recomendacao", "value"),
+)
+def atualizar_monjica(filtro):
+    df = carregar_monjica()
+
+    if filtro:
+        df = df[df["recomendacao"].isin(filtro)]
+
+    if df.empty:
+        vazio = fig_vazia("Sem dados MONJICA")
+        return [], vazio, [], []
+
+    # =========================
+    # KPIs
+    # =========================
+
+    total = len(df)
+    redistribuir = len(df[df["recomendacao"] == "redistribuir"])
+    reuso = len(df[df["recomendacao"] == "reuso"])
+
+    cards = [
+        card("Equipamentos analisados", f"{total}", "processados pelo MONJICA", "#2563eb"),
+        card("Redistribuição prioritária", f"{redistribuir}", "alta prioridade social", "#dc2626"),
+        card("Reuso direto", f"{reuso}", "baixo custo de reaproveitamento", "#16a34a"),
+    ]
+
+    # =========================
+    # Gráfico
+    # =========================
+
+    top = df.sort_values("score_prioridade", ascending=False).head(20)
+
+    fig = px.bar(
+        top,
+        x="score_prioridade",
+        y="tipo_equipamento",
+        color="recomendacao",
+        orientation="h",
+        title="Top equipamentos por prioridade"
+    )
+
+    fig.update_layout(height=500)
+
+    # =========================
+    # Tabela
+    # =========================
+
+    tabela_df = df[
+        [
+            "tipo_equipamento",
+            "estado_atual",
+            "origem",
+            "score_reuso",
+            "score_criticidade",
+            "score_prioridade",
+            "recomendacao",
+            "explicacao_modelo"
+        ]
+    ].sort_values("score_prioridade", ascending=False)
+
+    return (
+        cards,
+        fig,
+        [{"name": c, "id": c} for c in tabela_df.columns],
+        tabela_df.to_dict("records"),
+    )
 
 @app.callback(
     Output("cards-kpi", "children"),
