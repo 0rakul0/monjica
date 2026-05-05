@@ -36,6 +36,150 @@ referencias/
   TD_2817_Analise_ExAnte.pdf
   gestão (1)/
 ```
+---
+
+## Banco de dados (SQLite) — criação e carga
+
+O MVP utiliza um banco SQLite local para estruturar os dados de estabelecimentos de saúde, inventário de equipamentos, demanda territorial e resultados do modelo de priorização (MONJICA).
+
+### Estrutura do banco
+
+O banco principal é criado em:
+
+```text
+banco/monjica.db
+```
+
+Principais tabelas:
+
+| Tabela                   | Descrição                                            |
+| ------------------------ | ---------------------------------------------------- |
+| `estabelecimentos_saude` | hospitais, UBS, UPA e demais unidades CNES           |
+| `equipamentos`           | equipamentos vinculados aos estabelecimentos         |
+| `demanda_regional`       | necessidades por tipo de equipamento e município     |
+| `score_decisao`          | saída do modelo MONJICA (priorização e recomendação) |
+
+Relação central:
+
+```text
+equipamentos.id_estabelecimento → estabelecimentos_saude.id
+```
+
+---
+
+### Como criar e popular o banco
+
+O processo é feito em duas etapas:
+
+---
+
+### 1. Criar e carregar dados
+
+```bash
+python scripts/etl_monjica_final_fk.py
+```
+
+Esse script:
+
+* lê os arquivos do CNES em `data/entrada/`
+* normaliza campos (CNES, coordenadas, texto)
+* cria o banco SQLite
+* popula:
+
+  * estabelecimentos de saúde
+  * inventário de equipamentos
+  * demanda territorial
+* vincula equipamentos aos estabelecimentos via chave estrangeira (FK)
+
+---
+
+### 2. Calcular o modelo MONJICA
+
+```bash
+python scripts/score_monjica_v3_fk.py
+```
+
+Esse script:
+
+* calcula score de prioridade
+* classifica recomendações:
+
+  * redistribuição
+  * reuso
+  * recondicionamento
+  * descarte
+* grava os resultados na tabela:
+
+```text
+score_decisao
+```
+
+---
+
+### Validação do banco
+
+Após a carga, é possível validar a integridade com:
+
+```sql
+SELECT COUNT(*) FROM estabelecimentos_saude;
+SELECT COUNT(*) FROM equipamentos;
+SELECT COUNT(*) FROM score_decisao;
+```
+
+E verificar integridade relacional:
+
+```sql
+PRAGMA foreign_key_check;
+```
+
+Resultado esperado:
+
+* equipamentos vinculados a estabelecimentos (sem registros órfãos)
+* dados geográficos consistentes (LAT/LON válidos)
+* score calculado para todos os equipamentos
+
+---
+
+### Observações importantes
+
+* O CNES não fornece diretamente:
+
+  * estado de manutenção
+  * descarte
+  * número patrimonial
+* Esses campos são inicialmente estimados ou mantidos como zero
+* A evolução do sistema depende de integração com:
+
+  * engenharia clínica
+  * patrimônio
+  * sistemas hospitalares locais
+
+---
+
+### Atualização da base
+
+Sempre que novos dados forem baixados do CNES:
+
+```bash
+python scripts/importar_cnes_rj.py
+python scripts/etl_monjica_final_fk.py
+python scripts/score_monjica_v3_fk.py
+```
+
+---
+
+# 🚀 RESULTADO
+
+Com isso seu README agora cobre:
+
+✔ dados
+✔ metodologia
+✔ dashboard
+✔ **infraestrutura de dados (faltava isso)**
+✔ pipeline completo
+
+---
+
 
 ## Dados de entrada
 
