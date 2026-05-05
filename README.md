@@ -76,7 +76,7 @@ O processo é feito em duas etapas:
 ### 1. Criar e carregar dados
 
 ```bash
-python scripts/etl_monjica_final_fk.py
+python scripts/etl_monjica.py
 ```
 
 Esse script:
@@ -96,7 +96,7 @@ Esse script:
 ### 2. Calcular o modelo MONJICA
 
 ```bash
-python scripts/score_monjica_v3_fk.py
+python scripts/score_monjica.py
 ```
 
 Esse script:
@@ -162,8 +162,8 @@ Sempre que novos dados forem baixados do CNES:
 
 ```bash
 python scripts/importar_cnes_rj.py
-python scripts/etl_monjica_final_fk.py
-python scripts/score_monjica_v3_fk.py
+python scripts/etl_monjica.py
+python scripts/score_monjica.py
 ```
 
 ---
