@@ -309,55 +309,26 @@ def carregar_municipios():
 
     return gdf.to_crs("EPSG:4326")
 
+_COORD_CACHE = None
 
 def carregar_coordenadas_municipios():
+    global _COORD_CACHE
+
+    # ✅ usa cache
+    if _COORD_CACHE is not None:
+        return _COORD_CACHE
+
     if not COORD_HOSPITAIS_PATH.exists():
         return pd.DataFrame(columns=["destino_norm", "lat_destino", "lon_destino"])
 
     df = pd.read_csv(COORD_HOSPITAIS_PATH)
 
-    print("Colunas do CSV:", df.columns.tolist())
-
-    # =========================
-    # ESCOLHA CORRETA DAS COLUNAS
-    # =========================
-
-    # 🔥 força nome correto
-    if "NO_MUNICIPIO" in df.columns:
-        col_municipio = "NO_MUNICIPIO"
-    else:
-        col_municipio = None
-        for col in df.columns:
-            if "MUNIC" in col.upper():
-                col_municipio = col
-
-    # lat/lon continuam automáticos
-    col_lat = None
-    col_lon = None
-
-    for col in df.columns:
-        c = col.upper()
-
-        if "LAT" in c:
-            col_lat = col
-
-        if "LON" in c or "LOG" in c:
-            col_lon = col
-
-    print("Detectado:", col_municipio, col_lat, col_lon)
-
-    if not col_municipio or not col_lat or not col_lon:
-        print("❌ Não encontrou colunas necessárias")
-        return pd.DataFrame(columns=["destino_norm", "lat_destino", "lon_destino"])
-
-    # =========================
-    # NORMALIZAÇÃO
-    # =========================
+    col_municipio = "NO_MUNICIPIO"
+    col_lat = "LAT"
+    col_lon = "LON"
 
     df["LAT"] = df[col_lat].apply(normalizar_coord)
     df["LON"] = df[col_lon].apply(normalizar_coord)
-
-    # 🔥 agora correto
     df["destino_norm"] = df[col_municipio].apply(normalizar_texto)
 
     df = df.dropna(subset=["LAT", "LON"])
@@ -370,10 +341,32 @@ def carregar_coordenadas_municipios():
         )
     )
 
-    print("✅ Municípios com coordenadas:", len(df_mun))
+    # ✅ salva cache
+    _COORD_CACHE = df_mun
 
     return df_mun
 
+import requests
+
+def obter_rota_osrm(lat1, lon1, lat2, lon2):
+    url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson"
+
+    try:
+        r = requests.get(url, timeout=5)
+        data = r.json()
+
+        coords = data["routes"][0]["geometry"]["coordinates"]
+
+        lats = [c[1] for c in coords]
+        lons = [c[0] for c in coords]
+
+        distancia_km = data["routes"][0]["distance"] / 1000
+        tempo_min = data["routes"][0]["duration"] / 60
+
+        return lats, lons, distancia_km, tempo_min
+
+    except:
+        return None, None, None, None
 
 def carregar_monjica():
     conn = sqlite3.connect(DB_PATH)
@@ -383,24 +376,30 @@ def carregar_monjica():
         e.id,
         e.tipo_equipamento,
         e.estado_atual,
-        l.municipio AS origem,
-        l.lat AS lat_origem,
-        l.lon AS lon_origem,
+
+        es.nome_fantasia AS estabelecimento_origem,
+        es.municipio AS origem,
+        es.latitude AS lat_origem,
+        es.longitude AS lon_origem,
+
         s.score_reuso,
         s.score_criticidade,
         s.score_prioridade,
         s.recomendacao,
         s.explicacao_modelo
+
     FROM score_decisao s
-    JOIN equipamentos e ON e.id = s.id_equipamento
-    LEFT JOIN localizacao l ON e.id = l.id_equipamento
+
+    JOIN equipamentos e
+        ON e.id = s.id_equipamento
+
+    LEFT JOIN estabelecimentos_saude es
+        ON e.id_estabelecimento = es.id
     """
 
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
-
-
 def carregar_fluxo_monjica():
     conn = sqlite3.connect(DB_PATH)
 
@@ -408,17 +407,26 @@ def carregar_fluxo_monjica():
     SELECT
         e.id,
         e.tipo_equipamento,
-        l.municipio AS origem,
-        l.lat AS lat_origem,
-        l.lon AS lon_origem,
+
+        es.municipio AS origem,
+        es.latitude AS lat_origem,
+        es.longitude AS lon_origem,
+
         s.score_prioridade,
         s.recomendacao,
+
         d.municipio AS destino,
         d.nivel_vulnerabilidade,
         d.quantidade_necessaria
+
     FROM score_decisao s
-    JOIN equipamentos e ON e.id = s.id_equipamento
-    LEFT JOIN localizacao l ON e.id = l.id_equipamento
+
+    JOIN equipamentos e 
+        ON e.id = s.id_equipamento
+
+    LEFT JOIN estabelecimentos_saude es 
+        ON e.id_estabelecimento = es.id
+
     LEFT JOIN demanda_regional d
         ON e.tipo_equipamento = d.tipo_equipamento
     """
@@ -431,29 +439,15 @@ def carregar_fluxo_monjica():
 
     df["destino_norm"] = df["destino"].apply(normalizar_texto)
 
-    df = df.sort_values(
-        ["id", "nivel_vulnerabilidade", "quantidade_necessaria", "score_prioridade"],
-        ascending=[True, False, False, False],
-    ).drop_duplicates("id")
-
     coords = carregar_coordenadas_municipios()
 
-    print(df["destino"].unique()[:10])
-    print(coords["destino_norm"].unique()[:10])
-
     df = df.merge(
-        coords[["destino_norm", "lat_destino", "lon_destino"]],
+        coords,
         on="destino_norm",
         how="left"
     )
 
-    df["lat_origem"] = pd.to_numeric(df["lat_origem"], errors="coerce")
-    df["lon_origem"] = pd.to_numeric(df["lon_origem"], errors="coerce")
-    df["lat_destino"] = pd.to_numeric(df["lat_destino"], errors="coerce")
-    df["lon_destino"] = pd.to_numeric(df["lon_destino"], errors="coerce")
-
     return df
-
 
 def fig_vazia(titulo, altura=480):
     fig = go.Figure()
