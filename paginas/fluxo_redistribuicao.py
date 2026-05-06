@@ -330,6 +330,7 @@ def layout():
                     html.Div([html.Label("Prioridade mínima", style={"fontWeight": "600"}), dcc.Slider(id="filtro-prioridade", min=0, max=1, step=0.05, value=0.1, marks={0: "0", 0.1: "0.1", 0.3: "0.3", 0.6: "0.6", 1: "1"})], style={"flex": "2", "minWidth": "320px"}),
                     html.Div([html.Label("Recomendação", style={"fontWeight": "600"}), dcc.Dropdown(id="filtro-fluxo-recomendacao", options=[{"label": "Redistribuir", "value": "redistribuir"}, {"label": "Reuso", "value": "reuso"}, {"label": "Recondicionar", "value": "recondicionar"}, {"label": "Descarte", "value": "descarte"}], value=["redistribuir"], multi=True, placeholder="Selecione")], style={"flex": "1", "minWidth": "260px"}),
                     html.Div([html.Label("Destino", style={"fontWeight": "600"}), dcc.Dropdown(id="filtro-destino-fluxo", placeholder="Selecione um destino para detalhar")], style={"flex": "1", "minWidth": "280px"}),
+                    html.Div([html.Label("Tipo de equipamento", style={"fontWeight": "600"}), dcc.Dropdown(id="filtro-tipo-equipamento-fluxo", placeholder="Selecione um tipo de equipamento")], style={"flex": "1", "minWidth": "300px"}),
                 ],
                 style={**PANEL, "display": "flex", "gap": "18px", "flexWrap": "wrap", "marginBottom": "14px"},
             ),
@@ -399,6 +400,37 @@ def register_callbacks(app):
         return opcoes, valor
 
     @app.callback(
+        Output("filtro-tipo-equipamento-fluxo", "options"),
+        Output("filtro-tipo-equipamento-fluxo", "value"),
+        Input("filtro-regiao-fluxo", "value"),
+        Input("filtro-prioridade", "value"),
+        Input("filtro-fluxo-recomendacao", "value"),
+        Input("filtro-destino-fluxo", "value"),
+        Input("mapa-fluxo", "clickData"),
+    )
+    def carregar_opcoes_tipo(regioes, prioridade, recomendacoes, destino_selecionado, click_data):
+        df = carregar_fluxo_monjica()
+        if recomendacoes:
+            df = df[df["recomendacao"].isin(recomendacoes)]
+        if regioes:
+            df = df[(df["REGIAO_ORIGEM"].isin(regioes)) | (df["REGIAO_DESTINO"].isin(regioes))]
+        if destino_selecionado:
+            df = df[df["destino"] == destino_selecionado]
+        if df.empty:
+            return [], None
+        _, fluxos = agregar_fluxos(df, prioridade or 0)
+        if fluxos.empty:
+            return [], None
+        tipos = sorted(fluxos["tipo_equipamento"].dropna().unique())
+        opcoes = [{"label": t, "value": t} for t in tipos]
+        valor = None
+        if click_data and click_data.get("points"):
+            custom = click_data["points"][0].get("customdata")
+            if custom and len(custom) >= 2 and custom[1] in tipos:
+                valor = custom[1]
+        return opcoes, valor
+
+    @app.callback(
         Output("cards-fluxo", "children"),
         Output("mapa-fluxo", "figure"),
         Output("detalhe-fluxo-selecionado", "children"),
@@ -411,9 +443,10 @@ def register_callbacks(app):
         Input("filtro-prioridade", "value"),
         Input("filtro-fluxo-recomendacao", "value"),
         Input("filtro-destino-fluxo", "value"),
+        Input("filtro-tipo-equipamento-fluxo", "value"),
         Input("mapa-fluxo", "clickData"),
     )
-    def atualizar_fluxo(regioes, prioridade, recomendacoes, destino_selecionado, click_data):
+    def atualizar_fluxo(regioes, prioridade, recomendacoes, destino_selecionado, tipo_equipamento_selecionado, click_data):
         df = carregar_fluxo_monjica()
         if df.empty:
             vazio = fig_vazia("Sem dados")
@@ -424,6 +457,8 @@ def register_callbacks(app):
             df = df[(df["REGIAO_ORIGEM"].isin(regioes)) | (df["REGIAO_DESTINO"].isin(regioes))]
         if destino_selecionado:
             df = df[df["destino"] == destino_selecionado]
+        if tipo_equipamento_selecionado:
+            df = df[df["tipo_equipamento"] == tipo_equipamento_selecionado]
         if df.empty:
             vazio = fig_vazia("Sem dados após filtro")
             return [], vazio, html.Div("Sem dados para os filtros atuais.", style={"color": "#64748b"}), vazio, [], [], [], []
@@ -460,6 +495,8 @@ def register_callbacks(app):
         tabela_doadores_df = fluxos.iloc[0:0].copy()
         if destino_selecionado and not (click_data and click_data.get("points")):
             doadores = fluxos[fluxos["destino"] == destino_selecionado].copy()
+            if tipo_equipamento_selecionado:
+                doadores = doadores[doadores["tipo_equipamento"] == tipo_equipamento_selecionado].copy()
             doadores = doadores.sort_values(["score_final", "equipamentos"], ascending=False)
             doadores["distancia_km"] = doadores.apply(
                 lambda row: distancia_haversine_km(row["lat_origem"], row["lon_origem"], row["lat_destino"], row["lon_destino"]),
@@ -471,11 +508,12 @@ def register_callbacks(app):
             detalhe = html.Div(
                 [
                     html.Div(f"Destino selecionado: {destino_selecionado}", style={"fontWeight": "700", "marginBottom": "4px"}),
+                    html.Div(f"Tipo de equipamento: {tipo_equipamento_selecionado or 'todos os tipos'}", style={"marginBottom": "4px"}),
                     html.Div(f"Rotas viaveis no filtro atual: {len(doadores)}", style={"marginBottom": "4px"}),
                     html.Div(f"Doadores viaveis: {total_doadores} | Equipamentos nas rotas: {total_equip}", style={"color": "#475569"}),
                 ]
             )
-            fig_detalhe = montar_mini_mapa_doadores(doadores, destino_selecionado, rota_detalhada=True)
+            fig_detalhe = montar_mini_mapa_doadores(doadores, destino_selecionado, tipo_equipamento_selecionado, rota_detalhada=True)
             tabela_doadores_df = doadores[
                 [
                     "rank_viabilidade",
