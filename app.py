@@ -1,11 +1,12 @@
 from dash import Dash, dcc, html
 
 from paginas import (
-    visao_geral,
-    hospitais,
-    unidades_saude,
-    monjica,
+    clinicas_familia,
     fluxo_redistribuicao,
+    hospitais,
+    monjica,
+    unidades_saude,
+    visao_geral,
 )
 
 app = Dash(__name__, suppress_callback_exceptions=True)
@@ -27,7 +28,6 @@ app.layout = html.Div(
             ],
             style={"marginBottom": "18px"},
         ),
-
         dcc.Tabs(
             value="tab-visao-geral",
             children=[
@@ -40,6 +40,11 @@ app.layout = html.Div(
                     label="Hospitais",
                     value="tab-hospitais",
                     children=[hospitais.layout()],
+                ),
+                dcc.Tab(
+                    label="Clínicas da Família",
+                    value="tab-clinicas-familia",
+                    children=[clinicas_familia.layout()],
                 ),
                 dcc.Tab(
                     label="Unidades de saúde",
@@ -71,6 +76,7 @@ app.layout = html.Div(
 # Registra callbacks de cada página
 visao_geral.register_callbacks(app)
 hospitais.register_callbacks(app)
+clinicas_familia.register_callbacks(app)
 unidades_saude.register_callbacks(app)
 monjica.register_callbacks(app)
 fluxo_redistribuicao.register_callbacks(app)

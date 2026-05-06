@@ -1,14 +1,18 @@
 import plotly.express as px
 from dash import Input, Output, dcc, html
 
-from .shared import CARD_CONTAINER, PANEL, card, carregar_monjica, fig_vazia, tabela
+from .shared import CARD_CONTAINER, PANEL, card, carregar_monjica, fig_vazia, secao_intro, tabela
 
 
 def layout():
     return html.Div(
         [
-            html.H3("Inteligência MONJICA", style={"marginTop": "0"}),
-
+            secao_intro(
+                "Inteligência MONJICA",
+                "Esta etapa concentra a camada analítica do projeto. Aqui você encontra a priorização dos equipamentos "
+                "processados pelo modelo, com recomendações de redistribuição, reuso, recondicionamento ou descarte, "
+                "sempre como apoio à decisão e não como substituto da validação institucional e técnica.",
+            ),
             html.Div(
                 [
                     html.Div(
@@ -29,24 +33,17 @@ def layout():
                         style={"minWidth": "250px"},
                     )
                 ],
-                style={
-                    **PANEL,
-                    "display": "flex",
-                    "gap": "12px",
-                    "marginBottom": "14px",
-                },
+                style={**PANEL, "display": "flex", "gap": "12px", "marginBottom": "14px"},
             ),
-
             html.Div(id="cards-monjica", style=CARD_CONTAINER),
-
-            html.Div(
-                dcc.Graph(id="grafico-prioridade"),
-                style={**PANEL, "marginBottom": "14px"},
-            ),
-
+            html.Div(dcc.Graph(id="grafico-prioridade"), style={**PANEL, "marginBottom": "14px"}),
             html.Div(
                 [
                     html.H4("Equipamentos priorizados"),
+                    html.Div(
+                        "A tabela abaixo mostra os equipamentos analisados com seus scores e explicações do modelo para facilitar triagem técnica e governança.",
+                        style={"color": "#64748b", "fontSize": "13px", "marginBottom": "10px"},
+                    ),
                     tabela("tabela-monjica", page_size=15),
                 ],
                 style=PANEL,
@@ -65,7 +62,6 @@ def register_callbacks(app):
     )
     def atualizar_monjica(filtro):
         df = carregar_monjica()
-
         if filtro:
             df = df[df["recomendacao"].isin(filtro)]
 
@@ -87,15 +83,7 @@ def register_callbacks(app):
         ]
 
         top = df.sort_values("score_prioridade", ascending=False).head(20)
-
-        fig = px.bar(
-            top,
-            x="score_prioridade",
-            y="tipo_equipamento",
-            color="recomendacao",
-            orientation="h",
-            title="Top equipamentos por prioridade",
-        )
+        fig = px.bar(top, x="score_prioridade", y="tipo_equipamento", color="recomendacao", orientation="h", title="Top equipamentos por prioridade")
         fig.update_layout(height=500, margin=dict(l=10, r=10, t=50, b=10))
 
         tabela_df = df[
@@ -111,9 +99,4 @@ def register_callbacks(app):
             ]
         ].sort_values("score_prioridade", ascending=False)
 
-        return (
-            cards,
-            fig,
-            [{"name": c, "id": c} for c in tabela_df.columns],
-            tabela_df.to_dict("records"),
-        )
+        return cards, fig, [{"name": c, "id": c} for c in tabela_df.columns], tabela_df.to_dict("records")

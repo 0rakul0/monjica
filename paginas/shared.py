@@ -5,8 +5,10 @@ import unicodedata
 import geopandas as gpd
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 from dash import dash_table, html
 
+from core import REGIAO_POR_MUNICIPIO, normalizar_municipio, normalizar_regiao_nome
 from config import *
 
 DB_PATH = Path("./banco/monjica.db")
@@ -51,11 +53,15 @@ def normalizar_texto(valor):
         return ""
 
     texto = str(valor).strip().upper()
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    return " ".join(texto.split())
 
-    texto = unicodedata.normalize('NFKD', texto)
-    texto = ''.join([c for c in texto if not unicodedata.combining(c)])
 
-    return texto
+def normalizar_chave_municipio(valor):
+    base = normalizar_municipio(valor) or normalizar_texto(valor)
+    return (base or "").replace("-", " ")
+
 
 def normalizar_coord(valor):
     if pd.isna(valor):
@@ -77,6 +83,12 @@ def chave_cnes(valor):
     if texto.endswith(".0"):
         texto = texto[:-2]
     return texto.zfill(7)
+
+
+REGIAO_POR_MUNICIPIO = {
+    normalizar_chave_municipio(municipio): normalizar_regiao_nome(regiao)
+    for municipio, regiao in REGIAO_POR_MUNICIPIO.items()
+}
 
 
 def inferir_esfera(nome):
@@ -172,7 +184,8 @@ def carregar_hospitais():
         if coluna not in df.columns:
             df[coluna] = (
                 0
-                if coluna in {
+                if coluna
+                in {
                     "LEITOS",
                     "EQUIPAMENTOS_TOTAL",
                     "OPERACIONAIS",
@@ -205,6 +218,12 @@ def carregar_hospitais():
     df["REGIAO"] = df["REGIAO"].fillna("Não informada")
     df["ENDERECO"] = df["ENDERECO"].fillna("Não informado")
     df["NOME_HOSPITAL"] = df["NOME_HOSPITAL"].fillna("Não informado")
+    df["MUNICIPIO_NORM"] = df["MUNICIPIO"].apply(normalizar_chave_municipio)
+    df["REGIAO"] = df["REGIAO"].replace(
+        {"A classificar": pd.NA, "Não informada": pd.NA, "": pd.NA}
+    )
+    df["REGIAO"] = df["REGIAO"].fillna(df["MUNICIPIO_NORM"].map(REGIAO_POR_MUNICIPIO))
+    df["REGIAO"] = df["REGIAO"].fillna("A classificar").apply(normalizar_regiao_nome)
 
     porte = df.apply(inferir_porte, axis=1, result_type="expand")
     df["PORTE"] = porte[0]
@@ -256,9 +275,7 @@ def carregar_referencia_local():
 
     if "LEITOS_REFERENCIA" in df.columns:
         df["LEITOS_REFERENCIA"] = (
-            pd.to_numeric(df["LEITOS_REFERENCIA"], errors="coerce")
-            .fillna(0)
-            .astype(int)
+            pd.to_numeric(df["LEITOS_REFERENCIA"], errors="coerce").fillna(0).astype(int)
         )
 
     return df
@@ -293,6 +310,8 @@ def carregar_unidades_saude():
     df["LAT"] = df["LAT"].apply(normalizar_coord)
     df["LON"] = df["LON"].apply(normalizar_coord)
     df["NO_MUNICIPIO"] = df["NO_MUNICIPIO"].fillna("Não informado")
+    df["MUNICIPIO_NORM"] = df["NO_MUNICIPIO"].apply(normalizar_chave_municipio)
+    df["REGIAO"] = df["MUNICIPIO_NORM"].map(REGIAO_POR_MUNICIPIO).fillna("A classificar")
     df["CATEGORIA_UNIDADE"] = df["CATEGORIA_UNIDADE"].fillna("Não classificada")
 
     return df.dropna(subset=["LAT", "LON"]).copy()
@@ -303,18 +322,23 @@ def carregar_municipios():
         return None
 
     gdf = gpd.read_file(MUNICIPIOS_SHP)
-
     if gdf.crs is None:
         gdf = gdf.set_crs("EPSG:4674")
 
-    return gdf.to_crs("EPSG:4326")
+    gdf = gdf.to_crs("EPSG:4326")
+    gdf["MUNICIPIO_NORM"] = gdf["NM_MUN"].apply(normalizar_chave_municipio)
+    gdf["REGIAO_SAUDE"] = (
+        gdf["MUNICIPIO_NORM"].map(REGIAO_POR_MUNICIPIO).fillna("A classificar").apply(normalizar_regiao_nome)
+    )
+    return gdf
+
 
 _COORD_CACHE = None
+
 
 def carregar_coordenadas_municipios():
     global _COORD_CACHE
 
-    # ✅ usa cache
     if _COORD_CACHE is not None:
         return _COORD_CACHE
 
@@ -322,115 +346,88 @@ def carregar_coordenadas_municipios():
         return pd.DataFrame(columns=["destino_norm", "lat_destino", "lon_destino"])
 
     df = pd.read_csv(COORD_HOSPITAIS_PATH)
-
-    col_municipio = "NO_MUNICIPIO"
-    col_lat = "LAT"
-    col_lon = "LON"
-
-    df["LAT"] = df[col_lat].apply(normalizar_coord)
-    df["LON"] = df[col_lon].apply(normalizar_coord)
-    df["destino_norm"] = df[col_municipio].apply(normalizar_texto)
-
+    df["LAT"] = df["LAT"].apply(normalizar_coord)
+    df["LON"] = df["LON"].apply(normalizar_coord)
+    df["destino_norm"] = df["NO_MUNICIPIO"].apply(normalizar_texto)
     df = df.dropna(subset=["LAT", "LON"])
 
     df_mun = (
         df.groupby("destino_norm", as_index=False)
-        .agg(
-            lat_destino=("LAT", "mean"),
-            lon_destino=("LON", "mean")
-        )
+        .agg(lat_destino=("LAT", "mean"), lon_destino=("LON", "mean"))
     )
-
-    # ✅ salva cache
     _COORD_CACHE = df_mun
-
     return df_mun
 
-import requests
 
 def obter_rota_osrm(lat1, lon1, lat2, lon2):
-    url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson"
+    url = (
+        "http://router.project-osrm.org/route/v1/driving/"
+        f"{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson"
+    )
 
     try:
-        r = requests.get(url, timeout=5)
-        data = r.json()
-
+        resposta = requests.get(url, timeout=5)
+        data = resposta.json()
         coords = data["routes"][0]["geometry"]["coordinates"]
 
         lats = [c[1] for c in coords]
         lons = [c[0] for c in coords]
-
         distancia_km = data["routes"][0]["distance"] / 1000
         tempo_min = data["routes"][0]["duration"] / 60
-
         return lats, lons, distancia_km, tempo_min
-
-    except:
+    except Exception:
         return None, None, None, None
+
 
 def carregar_monjica():
     conn = sqlite3.connect(DB_PATH)
-
     query = """
     SELECT
         e.id,
         e.tipo_equipamento,
         e.estado_atual,
-
         es.nome_fantasia AS estabelecimento_origem,
         es.municipio AS origem,
         es.latitude AS lat_origem,
         es.longitude AS lon_origem,
-
         s.score_reuso,
         s.score_criticidade,
         s.score_prioridade,
         s.recomendacao,
         s.explicacao_modelo
-
     FROM score_decisao s
-
     JOIN equipamentos e
         ON e.id = s.id_equipamento
-
     LEFT JOIN estabelecimentos_saude es
         ON e.id_estabelecimento = es.id
     """
-
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
+
+
 def carregar_fluxo_monjica():
     conn = sqlite3.connect(DB_PATH)
-
     query = """
     SELECT
         e.id,
         e.tipo_equipamento,
-
         es.municipio AS origem,
         es.latitude AS lat_origem,
         es.longitude AS lon_origem,
-
         s.score_prioridade,
         s.recomendacao,
-
         d.municipio AS destino,
         d.nivel_vulnerabilidade,
         d.quantidade_necessaria
-
     FROM score_decisao s
-
-    JOIN equipamentos e 
+    JOIN equipamentos e
         ON e.id = s.id_equipamento
-
-    LEFT JOIN estabelecimentos_saude es 
+    LEFT JOIN estabelecimentos_saude es
         ON e.id_estabelecimento = es.id
-
     LEFT JOIN demanda_regional d
         ON e.tipo_equipamento = d.tipo_equipamento
     """
-
     df = pd.read_sql_query(query, conn)
     conn.close()
 
@@ -438,16 +435,13 @@ def carregar_fluxo_monjica():
         return df
 
     df["destino_norm"] = df["destino"].apply(normalizar_texto)
-
+    df["origem_norm"] = df["origem"].apply(normalizar_chave_municipio)
+    df["destino_norm_mun"] = df["destino"].apply(normalizar_chave_municipio)
+    df["REGIAO_ORIGEM"] = df["origem_norm"].map(REGIAO_POR_MUNICIPIO).fillna("A classificar")
+    df["REGIAO_DESTINO"] = df["destino_norm_mun"].map(REGIAO_POR_MUNICIPIO).fillna("A classificar")
     coords = carregar_coordenadas_municipios()
+    return df.merge(coords, on="destino_norm", how="left")
 
-    df = df.merge(
-        coords,
-        on="destino_norm",
-        how="left"
-    )
-
-    return df
 
 def fig_vazia(titulo, altura=480):
     fig = go.Figure()
@@ -499,6 +493,19 @@ def card(titulo, valor, detalhe, cor):
     )
 
 
+def secao_intro(titulo, descricao):
+    return html.Div(
+        [
+            html.H3(titulo, style={"margin": "0 0 6px 0"}),
+            html.Div(
+                descricao,
+                style={"color": "#475569", "fontSize": "14px", "lineHeight": "1.5"},
+            ),
+        ],
+        style={**PANEL, "marginBottom": "14px"},
+    )
+
+
 def tabela(id_tabela, page_size=12):
     return dash_table.DataTable(
         id=id_tabela,
@@ -525,14 +532,15 @@ def texto_ou_nao_informado(valor):
     return str(valor).strip()
 
 
-# Dados compartilhados carregados uma vez
 hospitais_df = carregar_hospitais()
 inventario_df = carregar_inventario_equipamentos()
 referencia_local_df = carregar_referencia_local()
 
 if not referencia_local_df.empty:
     hospitais_df = hospitais_df.merge(referencia_local_df, on="ID_HOSPITAL", how="left")
-    hospitais_df["REGIAO"] = hospitais_df.get("REGIAO_REFERENCIA", hospitais_df["REGIAO"]).fillna(hospitais_df["REGIAO"])
+    hospitais_df["REGIAO"] = hospitais_df.get(
+        "REGIAO_REFERENCIA", hospitais_df["REGIAO"]
+    ).fillna(hospitais_df["REGIAO"]).apply(normalizar_regiao_nome)
 else:
     hospitais_df["LEITOS_REFERENCIA"] = 0
     hospitais_df["TELEFONE_REFERENCIA"] = "Não informado"
@@ -540,3 +548,8 @@ else:
 
 municipios_gdf = carregar_municipios()
 unidades_saude_df = carregar_unidades_saude()
+clinicas_familia_df = (
+    unidades_saude_df[unidades_saude_df["CATEGORIA_UNIDADE"] == "Clinica da familia"]
+    .copy()
+    .sort_values(["NO_MUNICIPIO", "NO_FANTASIA"])
+)

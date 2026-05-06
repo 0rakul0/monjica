@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
+import sys
 import unicodedata
 import uuid
 from pathlib import Path
@@ -10,6 +11,12 @@ from typing import Any
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from core.normalizacao import normalizar_municipio, normalizar_regiao_nome
+from core.referencias_rj import REGIAO_POR_MUNICIPIO
+
 DATA_DIR = ROOT / "data" / "entrada"
 DB_PATH = ROOT / "banco" / "monjica.db"
 SCHEMA_PATH = ROOT / "sql" / "schema_monjica.sqlite.sql"
@@ -73,6 +80,21 @@ def to_int(valor: Any, default: int = 0) -> int:
         return int(float(valor))
     except Exception:
         return default
+
+
+def inferir_regiao_rj(municipio: Any = None, regiao: Any = None) -> str:
+    regiao_norm = normalizar_regiao_nome(regiao)
+    if regiao_norm:
+        return regiao_norm
+
+    municipio_norm = normalizar_municipio(municipio)
+    if not municipio_norm:
+        return "A classificar"
+
+    regiao_base = REGIAO_POR_MUNICIPIO.get(municipio_norm)
+    if not regiao_base:
+        return "A classificar"
+    return normalizar_regiao_nome(regiao_base) or "A classificar"
 
 
 def inferir_esfera(nome: Any, natureza: Any = None) -> str:
@@ -212,7 +234,7 @@ def popular_municipios(conn: sqlite3.Connection, estabelecimentos: pd.DataFrame)
     )
     mun = mun.groupby(["id_municipio", "municipio", "nome_municipio_norm"], as_index=False).size().drop(columns="size")
     mun = mun.merge(coords, on="id_municipio", how="left")
-    mun["regiao"] = "A classificar"
+    mun["regiao"] = mun["municipio"].apply(inferir_regiao_rj)
     mun = mun.rename(columns={"municipio": "nome_municipio"})[["id_municipio", "nome_municipio", "nome_municipio_norm", "regiao", "lat_media", "lon_media"]]
     mun.to_sql("municipios", conn, if_exists="append", index=False)
     log(conn, "municipios", len(mun))
@@ -273,7 +295,7 @@ def popular_hospitais_perfil(conn: sqlite3.Connection, estabelecimentos: pd.Data
             equipamentos_ociosos_estimados=("qt_ocioso_estimado", "sum"),
         )
 
-    perfil = base[["id", "cnes", "nome_fantasia", "natureza_juridica"]].merge(agg, on="cnes", how="left")
+    perfil = base[["id", "cnes", "nome_fantasia", "natureza_juridica", "municipio"]].merge(agg, on="cnes", how="left")
     for c in ["equipamentos_total", "equipamentos_em_uso", "equipamentos_sus", "equipamentos_ociosos_estimados"]:
         perfil[c] = pd.to_numeric(perfil[c], errors="coerce").fillna(0).astype(int)
 
@@ -301,7 +323,10 @@ def popular_hospitais_perfil(conn: sqlite3.Connection, estabelecimentos: pd.Data
             "esfera": r.get("ESFERA") or inferir_esfera(r.get("nome_fantasia"), r.get("natureza_juridica")),
             "porte": porte,
             "criterio_porte": criterio,
-            "regiao": r.get("REGIAO_REFERENCIA") or r.get("REGIAO") or "A classificar",
+            "regiao": inferir_regiao_rj(
+                municipio=r.get("municipio"),
+                regiao=r.get("REGIAO_REFERENCIA") or r.get("REGIAO"),
+            ),
             "leitos_cnes": leitos,
             "leitos_referencia": leitos_ref,
             "telefone_referencia": r.get("TELEFONE_REFERENCIA"),

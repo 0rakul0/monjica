@@ -1,5 +1,7 @@
 # KPIs do piloto
 
+Este conjunto de indicadores foi organizado para o piloto local do Rio de Janeiro. A ideia e separar o que mede cobertura e qualidade da base, o que mede desempenho operacional e o que mede efeito territorial do reaproveitamento.
+
 ## Indicadores de insumo
 
 | Indicador | Formula | Uso |
@@ -34,6 +36,14 @@
 | Regioes atendidas | numero de regioes com redistribuicao efetiva | medir equidade territorial |
 | Reducao de descarte | equipamentos reaproveitados / equipamentos inicialmente descartaveis | medir sustentabilidade |
 | Amplificacao de acesso | servicos/equipamentos disponibilizados em areas prioritarias | medir impacto social |
+
+## Indicadores territoriais recomendados
+
+| Indicador | Formula | Uso |
+| --- | --- | --- |
+| Regiao com maior indice de reaproveitamento | max((ociosos + manutencao) / equipamentos totais) por regiao | apoiar priorizacao do piloto |
+| Cobertura regional do diagnostico | regioes com hospitais mapeados / regioes totais do RJ | medir alcance territorial da base |
+| Cobertura regional da rede receptora | regioes com APS/UPA mapeadas / regioes totais do RJ | medir viabilidade de redistribuicao |
 
 ## Metas sugeridas para piloto
 
