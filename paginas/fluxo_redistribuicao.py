@@ -31,7 +31,12 @@ def montar_mapa_fluxo(df):
 def layout():
     return html.Div(
         [
-            secao_intro("Fluxo de Redistribuição", "Esta etapa transforma prioridade analítica em rota de ação territorial. Aqui você encontra os fluxos mais relevantes entre origem e destino, com base no score do modelo, na vulnerabilidade regional e na demanda estimada, para apoiar decisões de redistribuição e logística."),
+            secao_intro(
+                "Fluxo de Redistribuição",
+                "Esta etapa transforma prioridade analítica em rota de ação territorial. Aqui você encontra os fluxos mais relevantes entre origem e destino, com base no score do modelo, na vulnerabilidade regional e na demanda estimada, para apoiar decisões de redistribuição e logística.",
+                objetivo="demonstrar como o diagnóstico e a priorização podem ser convertidos em uma agenda operacional de redistribuição dentro do piloto.",
+                encontra="filtros por região, prioridade mínima e recomendação, além de mapa de fluxos e tabela de encaminhamentos priorizados.",
+            ),
             html.Div(
                 [
                     html.Div([html.Label("Região", style={"fontWeight": "600"}), dcc.Dropdown(id="filtro-regiao-fluxo", multi=True, placeholder="Todas as regiões")], style={"flex": "1", "minWidth": "260px"}),

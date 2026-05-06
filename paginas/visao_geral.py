@@ -150,6 +150,8 @@ def layout():
             secao_intro(
                 "Visão Geral",
                 "Esta etapa apresenta a fotografia territorial do projeto: onde estão os hospitais mapeados, como eles se distribuem pelas regiões de saúde do Rio de Janeiro e quais sinais iniciais de reaproveitamento aparecem no inventário atual. Aqui você encontra filtros, mapa estadual, indicadores executivos e comparações entre regiões para orientar prioridades do piloto.",
+                objetivo="sustentar o diagnóstico situacional e territorial do piloto no RJ, identificando onde o problema se concentra e quais regiões devem ser priorizadas.",
+                encontra="mapa estadual, filtros por região, município, esfera e potencial, além de indicadores comparativos para leitura macro da rede.",
             ),
             html.Div(
                 [

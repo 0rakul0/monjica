@@ -84,6 +84,8 @@ def layout():
                 "Esta etapa detalha cada hospital individualmente. Aqui você pode navegar por região de saúde, "
                 "selecionar uma unidade no mapa ou na lista e consultar seus microdados operacionais: porte, "
                 "leitos, referência local e inventário por tipo de equipamento para apoiar triagem e validação técnica.",
+                objetivo="sustentar a triagem microassistencial do piloto, permitindo verificar onde estão os ativos com potencial de reaproveitamento e quais unidades precisam de validação técnica.",
+                encontra="seleção por região, clique no mapa, cards do hospital, gráfico por status, quantitativo por equipamento e microdados de inventário.",
             ),
             dcc.Store(id="hospital-clicado-mapa"),
             html.Div(

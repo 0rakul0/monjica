@@ -43,7 +43,12 @@ def layout():
     valor_padrao = clinicas_familia_df.iloc[0]["CO_CNES"] if not clinicas_familia_df.empty else None
     return html.Div(
         [
-            secao_intro("Clínicas da Família", "Esta etapa usa a mesma lógica de navegação dos hospitais, mas aplicada à atenção primária. Aqui você identifica a clínica, verifica sua localização e enxerga claramente o que já está documentado no CNES e o que ainda precisa ser integrado para formar um inventário operacional completo."),
+            secao_intro(
+                "Clínicas da Família",
+                "Esta etapa usa a mesma lógica de navegação dos hospitais, mas aplicada à atenção primária. Aqui você identifica a clínica, verifica sua localização e enxerga claramente o que já está documentado no CNES e o que ainda precisa ser integrado para formar um inventário operacional completo.",
+                objetivo="representar a capacidade receptora da APS dentro do piloto, deixando visível onde a redistribuição pode ampliar acesso e onde ainda faltam dados para operacionalização.",
+                encontra="filtros por região e município, mapa clicável, leitura cadastral da unidade e roteiro das lacunas de integração do inventário.",
+            ),
             dcc.Store(id="clinica-clicada-mapa"),
             html.Div(
                 [

@@ -403,6 +403,12 @@ def carregar_monjica():
     """
     df = pd.read_sql_query(query, conn)
     conn.close()
+    if df.empty:
+        df["origem_norm"] = pd.Series(dtype="object")
+        df["REGIAO_ORIGEM"] = pd.Series(dtype="object")
+        return df
+    df["origem_norm"] = df["origem"].apply(normalizar_chave_municipio)
+    df["REGIAO_ORIGEM"] = df["origem_norm"].map(REGIAO_POR_MUNICIPIO).fillna("A classificar")
     return df
 
 
@@ -432,6 +438,13 @@ def carregar_fluxo_monjica():
     conn.close()
 
     if df.empty:
+        df["destino_norm"] = pd.Series(dtype="object")
+        df["origem_norm"] = pd.Series(dtype="object")
+        df["destino_norm_mun"] = pd.Series(dtype="object")
+        df["REGIAO_ORIGEM"] = pd.Series(dtype="object")
+        df["REGIAO_DESTINO"] = pd.Series(dtype="object")
+        df["lat_destino"] = pd.Series(dtype="float64")
+        df["lon_destino"] = pd.Series(dtype="float64")
         return df
 
     df["destino_norm"] = df["destino"].apply(normalizar_texto)
@@ -493,17 +506,38 @@ def card(titulo, valor, detalhe, cor):
     )
 
 
-def secao_intro(titulo, descricao):
-    return html.Div(
-        [
-            html.H3(titulo, style={"margin": "0 0 6px 0"}),
+def secao_intro(titulo, descricao, objetivo=None, encontra=None):
+    blocos = [
+        html.H3(titulo, style={"margin": "0 0 6px 0"}),
+        html.Div(
+            descricao,
+            style={"color": "#475569", "fontSize": "14px", "lineHeight": "1.5"},
+        ),
+    ]
+
+    if objetivo:
+        blocos.append(
             html.Div(
-                descricao,
-                style={"color": "#475569", "fontSize": "14px", "lineHeight": "1.5"},
-            ),
-        ],
-        style={**PANEL, "marginBottom": "14px"},
-    )
+                [
+                    html.Span("Objetivo: ", style={"fontWeight": "700", "color": "#334155"}),
+                    html.Span(objetivo, style={"color": "#475569"}),
+                ],
+                style={"marginTop": "10px", "fontSize": "13px", "lineHeight": "1.5"},
+            )
+        )
+
+    if encontra:
+        blocos.append(
+            html.Div(
+                [
+                    html.Span("Nesta aba voce encontra: ", style={"fontWeight": "700", "color": "#334155"}),
+                    html.Span(encontra, style={"color": "#475569"}),
+                ],
+                style={"marginTop": "6px", "fontSize": "13px", "lineHeight": "1.5"},
+            )
+        )
+
+    return html.Div(blocos, style={**PANEL, "marginBottom": "14px"})
 
 
 def tabela(id_tabela, page_size=12):

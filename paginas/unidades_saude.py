@@ -56,7 +56,12 @@ def detalhe_unidade(cnes, df):
 def layout():
     return html.Div(
         [
-            secao_intro("Unidades de Saúde", "Esta etapa amplia a leitura territorial além dos hospitais. Aqui você encontra UBS, Clínicas da Família, postos de saúde e UPAs para entender presença territorial, cadastro das unidades e cobertura básica do ecossistema de saúde municipal no estado."),
+            secao_intro(
+                "Unidades de Saúde",
+                "Esta etapa amplia a leitura territorial além dos hospitais. Aqui você encontra UBS, Clínicas da Família, postos de saúde e UPAs para entender presença territorial, cadastro das unidades e cobertura básica do ecossistema de saúde municipal no estado.",
+                objetivo="apresentar a infraestrutura territorial ampliada do piloto, mostrando a rede pública que compõe o contexto de origem e destino das estratégias de redistribuição.",
+                encontra="filtros por região, tipo e município, mapa clicável, detalhamento cadastral e microdados exportáveis das unidades.",
+            ),
             dcc.Store(id="unidade-clicada-mapa"),
             html.Div(
                 [
