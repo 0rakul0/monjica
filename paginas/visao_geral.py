@@ -187,12 +187,18 @@ def layout():
                 style={**PANEL, "display": "flex", "gap": "12px", "flexWrap": "wrap", "marginBottom": "14px"},
             ),
             html.Div(id="cards-kpi", style=CARD_CONTAINER),
-            html.Div(dcc.Graph(id="mapa-hospitais"), style={**PANEL, "padding": "8px", "marginBottom": "14px"}),
+            html.Div(
+                [
+                    html.Div(dcc.Graph(id="mapa-hospitais"), style={**PANEL, "padding": "8px", "marginBottom": "14px",
+                                                                    "flex": "1", "minWidth": "320px"}),
+                    html.Div(dcc.Graph(id="grafico-regiao"), style={"flex": "1", "minWidth": "320px"}),
+                ],
+                style={"display": "flex", "gap": "14px", "flexWrap": "wrap", "marginBottom": "14px"},
+            ),
             html.Div(
                 [
                     html.Div(dcc.Graph(id="grafico-esfera"), style={"flex": "1", "minWidth": "320px"}),
                     html.Div(dcc.Graph(id="grafico-potencial"), style={"flex": "1", "minWidth": "320px"}),
-                    html.Div(dcc.Graph(id="grafico-regiao"), style={"flex": "1", "minWidth": "320px"}),
                 ],
                 style={"display": "flex", "gap": "14px", "flexWrap": "wrap", "marginBottom": "14px"},
             ),
